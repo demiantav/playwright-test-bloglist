@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import helper from './helper-bloglist-test.js';
 
 test.describe('Blog App', () => {
   test.beforeEach(async ({ request, page }) => {
@@ -42,25 +43,13 @@ test.describe('Blog App', () => {
       });
 
       test('a new blog can be created', async ({ page, request }) => {
-        await page.getByRole('button', { name: 'New blog' }).click();
-
-        await page.getByLabel('title').fill('Prueba play');
-        await page.getByLabel('author').fill('firulai');
-        await page.getByLabel('url').fill('www.google.com');
-
-        await page.getByRole('button', { name: 'Save' }).click();
+        await helper.createBlog(page, 'Prueba play', 'firulai', 'www.google.com');
 
         await expect(page.getByText('Prueba play')).toBeVisible();
       });
 
       test('the blog can be liked', async ({ page, request }) => {
-        await page.getByRole('button', { name: 'New blog' }).click();
-
-        await page.getByLabel('title').fill('Prueba play');
-        await page.getByLabel('author').fill('firulai');
-        await page.getByLabel('url').fill('www.google.com');
-
-        await page.getByRole('button', { name: 'Save' }).click();
+        await helper.createBlog(page, 'Prueba play', 'firulai', 'www.google.com');
         await page.getByRole('button', { name: 'Show' }).click();
 
         await page.getByRole('button', { name: 'Like' }).click();
@@ -68,22 +57,42 @@ test.describe('Blog App', () => {
         await expect(page.getByText('1')).toBeVisible();
       });
 
-      test('a blog can be deleted', async ({ page, request }) => {
-        await page.getByRole('button', { name: 'New blog' }).click();
-
-        await page.getByLabel('title').fill('Prueba play');
-        await page.getByLabel('author').fill('firulai');
-        await page.getByLabel('url').fill('www.google.com');
-
-        await page.getByRole('button', { name: 'Save' }).click();
+      test('a blog can be deleted only by the user who created', async ({ page, request }) => {
+        await helper.createBlog(page, 'Prueba play', 'firulai', 'www.google.com');
         await page.getByRole('button', { name: 'Show' }).click();
-        await page.getByRole('button', { name: 'Delete' }).click();
 
         page.on('dialog', async (dialog) => {
-          expect(dialog.message()).toContain('Pipoc');
+          expect(dialog.message()).toContain('Remove Prueba play by firulai ?');
 
           await dialog.accept();
         });
+
+        await page.getByRole('button', { name: 'Delete' }).click();
+      });
+
+      test('the blogs are arranged in order', async ({ page }) => {
+        await helper.createBlog(page, 'Prueba play', 'firulai', 'www.google.com');
+        await page.getByText('Cancel').click();
+        await helper.createBlog(page, 'Prueba 2', 'firulai', 'www.google.com');
+        await page.getByText('Cancel').click();
+        await helper.createBlog(page, 'Prueba super', 'con mas blogs', 'www.google.com');
+        await page.getByText('Cancel').click();
+
+        const blog1 = await page.getByText('Prueba play'),
+          blog3 = await page.getByText('Prueba super');
+
+        await blog3.getByRole('button', { name: 'Show' }).click();
+        await blog3.getByRole('button', { name: 'Like' }).click();
+        await blog3.getByRole('button', { name: 'Like' }).click();
+        await blog3.getByRole('button', { name: 'Like' }).click();
+
+        await blog1.getByRole('button', { name: 'Show' }).click();
+        await blog1.getByRole('button', { name: 'Like' }).click();
+
+        await page.reload();
+
+        await page.getByRole('button', { name: 'Show' }).first().click();
+        await expect(page.getByText('3')).toBeVisible();
       });
     });
   });
